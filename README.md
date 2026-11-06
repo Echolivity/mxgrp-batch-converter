@@ -117,6 +117,10 @@ python batch_convert.py "H:\Maschinelib" "D:\NI Drum Racks" `
 
 The 5,055 written racks matched the dry-run prediction exactly. These are reported results from the author's library run, not a claim that every rack was individually auditioned.
 
+![Full-library conversion results](assets/library-run-summary.svg)
+
+<sub>Author-reported Windows run. These figures describe conversion and structural validation, not individual auditioning of every generated rack.</sub>
+
 ## What changed vs upstream
 
 Based on [`24407kt/mxgrp-to-drumrack`](https://github.com/24407kt/mxgrp-to-drumrack) (MIT). The upstream `.adg` template-generation technique is retained; the original generator remains as `generate_drum_rack_adg_legacy` for regression comparison.

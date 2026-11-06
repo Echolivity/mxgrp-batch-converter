@@ -1,0 +1,11 @@
+   __pycache__/
+   *.pyc
+   reports/
+   mxgrp_reports/
+   .mxgrp_converter_manifest.json
+   *.mxgrp
+   *.adg
+   *.ogg
+   *.wav
+   *.rx2
+   *.asd

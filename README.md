@@ -1,113 +1,190 @@
-# mxgrp batch converter: Maschine kits to Ableton Live 12 Drum Racks
+![MXGRP Batch Converter — Echolivity Tools](assets/mxgrp-converter-banner.svg)\n\n<div align="center">\n\n![Echolivity Tools](assets/echolivity-tools-mark.svg)\n\n</div>
 
-A safe, audited batch converter from Native Instruments Maschine `.mxgrp` kits to Ableton Live 12 Drum Rack `.adg` presets.
-Based on [24407kt/mxgrp-to-drumrack](https://github.com/24407kt/mxgrp-to-drumrack) (MIT). The upstream `.adg` template engine is kept;
-this project adds a rewritten `.mxgrp` parser, dry-run / report / incremental modes, validation and safety rules.
+<div align="center">
+
+# MXGRP Batch Converter
+
+**Maschine kits → Ableton Live 12 Drum Racks.**
+
+A safe, audited batch converter for Native Instruments Maschine `.mxgrp` groups and Ableton `.adg` presets.
+
+[Features](#what-it-does) · [Install and run](#install-and-run) · [Results](#real-library-results) · [Verification](#verification-and-limitations)
+
+![Python](https://img.shields.io/badge/Python-3.8%2B-3776ab)
+![Windows](https://img.shields.io/badge/platform-Windows%20tested-267e9b)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+</div>
+
+## At a glance
+
+- Converts Maschine `.mxgrp` groups into Ableton Live 12 Drum Rack `.adg` presets.
+- **Dry-run first**, with CSV reports and logs before writing presets.
+- Validates generated racks before atomic writes.
+- Uses SHA-256 change detection for safe incremental runs.
+- Preserves pad order and reports unsupported plugin/drum-synth content instead of silently dropping it.
+
+> **Safety:** The converter never modifies or deletes source files and never overwrites existing outputs unless `--overwrite` is passed. Use your own Maschine libraries and Ableton *Drum Essentials* pack. The required template is `Wrong Sided Kit.adg`. This repository contains no Native Instruments or Ableton content.
 
 > Not affiliated with or endorsed by Native Instruments or Ableton. The `.mxgrp` format is reverse-engineered and may change.
-> This repository contains no NI or Ableton content. You need your own Maschine libraries and the Ableton *Drum Essentials*
-> pack (its `Wrong Sided Kit.adg` is the template). The tool never modifies or deletes your source files and never overwrites
-> existing outputs unless you pass `--overwrite`. Use at your own risk. Tested on Windows with Python 3.13, Live 12 and one
-> large library; see the verification and limitations sections below.
 
-# Maschine .mxgrp -> Ableton Live 12 Drum Rack (batch, safe mode)
+## What it does
 
-Built on https://github.com/24407kt/mxgrp-to-drumrack (MIT). The `.adg` generation technique (string replacement
-on the Drum Essentials "Wrong Sided Kit.adg" template) is unchanged; the original generator is kept as
-`generate_drum_rack_adg_legacy` for regression comparison.
+```text
+Maschine library (.mxgrp)
+        │
+        ▼
+Discovery + structured parsing
+        │
+        ▼
+Sample / plugin checks ──► CSV report + log
+        │
+        ▼
+Ableton Drum Essentials template
+        │
+        ▼
+Generate .adg ──► Re-read + validate ──► Atomic write
+```
 
-## Files
-| File | Purpose |
-|---|---|
-| `batch_convert.py` | **Run this.** Discovery, validation, dry-run/execute, manifest, CSV reports, logs |
-| `mxgrp_parser.py` | Structured record parser (replaces the `.wav` substring scan) |
-| `mxgrp_to_drumrack.py` | Upstream engine, patched (note-addressed generator, RIFF-walking WAV reader, validator) |
-| `tests/test_regression_3onit.py` | 3onIt regression tests |
-| `FORMAT_NOTES.md` | What is/isn't known about the binary format |
+## Install and run
 
-## What changed vs upstream
-1. **Pad 10-12 rotation: root cause was the generator, not the parser.** Template branch order is not note order.
-   Now chosen by `ReceivingNote`.
-2. Parser reads sound records (name, instrument, sample) in serialised order; no dedup, so reused samples don't shift pads.
-3. Plugin pads (Massive) are detected and reported `UNSUPPORTED_PLUGIN`; they are never silently dropped.
-4. Unused template branches are removed; `Id`s renumbered 0..n-1. Pad labels are set to the Maschine pad name
-   (upstream left "Kick Kindified" etc.).
-5. WAV reader walks RIFF chunks (LIST/bext/extensible); truncated or corrupt files are detected.
-6. Missing/corrupt sample => kit **not** written (unless `--allow-missing-samples`).
-7. No silent truncation: >16 sounds => error. Fewer than 16 sounds => `REVIEW_SHORT_KIT` (see limitations).
-8. Output is re-read and validated (XML parses, pad count, notes, sample refs) before it replaces anything. Writes are atomic.
-9. Change detection by SHA-256 of source + template, converter/parser version, sample root and options (not mtimes),
-   stored in `<output>\.mxgrp_converter_manifest.json`. Stale outputs are reported, not overwritten, without `--overwrite`.
+**Requirements:** Windows-tested; Python 3.8+; standard library only. Ableton Live 12 and the *Drum Essentials* pack are needed to use the generated racks.
 
-## PowerShell guide
+1. Download or clone this repository.
+2. Locate `Wrong Sided Kit.adg` from your Ableton *Drum Essentials* pack.
+3. Open PowerShell in the folder containing `batch_convert.py`.
+
+### 1. Optional tests
+
 ```powershell
-cd C:\path\to\mxgrp-batch          # folder containing batch_convert.py
-python --version                    # 3.8+ ; standard library only
-
-# 0. Tests (optional)
-$env:MXGRP_3ONIT    = "H:\Maschinelib\Amplified Funk Library\Groups\Kits\3onIt Kit.mxgrp"
+$env:MXGRP_3ONIT = "H:\Maschinelib\Amplified Funk Library\Groups\Kits\3onIt Kit.mxgrp"
 $env:MXGRP_TEMPLATE = "D:\abpcks\Drum Essentials\Drums\Hybrid\Wrong Sided Kit.adg"
 python -m unittest discover -s tests -v
+```
 
-# 1. Regression kit only (writes ONE .adg)
-python batch_convert.py "H:\Maschinelib" "D:\NI Drum Racks" `
-  --template "D:\abpcks\Drum Essentials\Drums\Hybrid\Wrong Sided Kit.adg" --execute --only "3onIt Kit" --report ".\reports"
+### 2. Dry-run the library first
 
-# 2. Full-library DRY RUN (writes no .adg; only CSVs + log in .\reports)
+This writes reports and logs, **not** `.adg` presets.
+
+```powershell
 python batch_convert.py "H:\Maschinelib" "D:\NI Drum Racks" `
   --template "D:\abpcks\Drum Essentials\Drums\Hybrid\Wrong Sided Kit.adg" --dry-run --report ".\reports"
+```
 
-# 3. Batch conversion (only after steps 1-2 are reviewed)
+### 3. Convert
+
+Review the dry-run report, then execute:
+
+```powershell
 python batch_convert.py "H:\Maschinelib" "D:\NI Drum Racks" `
   --template "D:\abpcks\Drum Essentials\Drums\Hybrid\Wrong Sided Kit.adg" --execute --report ".\reports"
 ```
-Flags: `--overwrite` (replace existing/stale outputs), `--only TEXT`, `--accept-short-kits`, `--accept-parse-warnings`,
-`--allow-missing-samples`, `--no-previews`, `--no-xmp`.
 
-## Results on the real library (converter 2.1.0, parser 3.1.0)
-Full `--execute` over `H:\Maschinelib`, 5,462 `.mxgrp` files, zero errors:
+For a single regression kit:
 
-| Status | Kits |
+```powershell
+python batch_convert.py "H:\Maschinelib" "D:\NI Drum Racks" `
+  --template "D:\abpcks\Drum Essentials\Drums\Hybrid\Wrong Sided Kit.adg" --execute --only "3onIt Kit" --report ".\reports"
+```
+
+### Options
+
+| Flag | Purpose |
 |---|---|
-| CONVERTED (all 16 pads are samples) | 2,859 |
-| CONVERTED_PARTIAL (sample pads converted; plugin / drum-synth pads reported, left empty) | 2,147 |
-| SKIPPED_UP_TO_DATE (converted in earlier test runs) | 49 |
-| SKIPPED_MULTIZONE_INSTRUMENT | 211 |
-| SKIPPED_NO_SUPPORTED_PADS (no sample pads, e.g. effect groups / pure synth kits) | 177 |
-| REVIEW_SHORT_KIT (fewer than 16 pad records, held) | 19 |
+| `--dry-run` | Discover, validate and report without writing racks |
+| `--execute` | Perform conversion |
+| `--overwrite` | Replace existing or stale outputs |
+| `--only TEXT` | Process matching kit(s) only |
+| `--accept-short-kits` | Allow kits with fewer than 16 pad records |
+| `--accept-parse-warnings` | Continue despite parse warnings |
+| `--allow-missing-samples` | Permit missing sample references |
+| `--no-previews` | Disable previews |
+| `--no-xmp` | Disable XMP output |
 
-Total racks written: 5,055 (matches the dry-run prediction exactly).
+## Real-library results
 
-## Verified by you against Maschine and Live 12
-* 3onIt Kit: pads 10-12 = Sidestick / Tom / Vocal, rack loads in Live 12.
-* Cachophony Kit and Amplified Funk "Chakra Kit" (hybrid kits with drum-synth pads between sample pads): sample pads sit
-  on the same MIDI notes / pad numbers as in Maschine; synth and plugin pads are empty.
-* DaOne Kit: a sample name with a double space was matched by the whitespace-normalised fallback (recorded in the kit report).
+**Full execution on the author's Windows Maschine library:** 5,462 `.mxgrp` files; zero errors.
 
-## Unit tests (Linux sandbox, real 3onIt + real template, synthetic silent WAVs)
-`python -m unittest discover -s tests -v`: 9 tests, OK. They cover parser order/names/plugin, reproduction of the upstream
-pad 10-12 bug versus the fix, XML escaping, dry-run writes nothing, execute + ADG verification, the pad-CSV Massive row,
-second-run skip / stale handling, missing and corrupt samples, and the WAV extensible reader.
+| Result | Kits |
+|---|---:|
+| Converted — all 16 pads are samples | 2,859 |
+| Converted partial — sample pads converted; unsupported plugin/drum-synth pads left empty | 2,147 |
+| Skipped — already up to date | 49 |
+| Skipped — multizone instrument | 211 |
+| Skipped — no supported sample pads | 177 |
+| Held for short-kit review | 19 |
+| **Total racks written** | **5,055** |
 
-## NOT verified
-* Push 2 pad layout (nothing here can run Ableton or a Push).
-* Only a few racks were opened in Live; the other ~5,000 are structurally validated (XML re-parsed, branch count, notes, paths)
-  but not individually auditioned.
-* Pad numbering for the 19 short kits (see below) and the 4 `Groups\Kits` Rhodes kits skipped as multizone (assumed to be
-  one multi-sampled pad).
+The 5,055 written racks matched the dry-run prediction exactly. These are reported results from the author's library run, not a claim that every rack was individually auditioned.
 
-## Known limitations
-* **Short kits (19, held).** 16 are real kits with <16 pad records; 3 are `Multi FX` groups (not drum kits, correctly not converted).
-  Where those kits' pads sit (pads 1..N?) is unverified. `--accept-short-kits` converts them assuming pads 1..N; use it only
-  after checking one such kit in Maschine. Girls Make Beats Kit references a library ("Community Drive 2021") that is not
-  installed, so Maschine cannot load it.
-* **Multizone instruments (211, skipped).** 207 are `Groups\Loops`; 4 are Rhodes kits. A single multi-zone sampler is not a drum rack.
-* **Plugin pads** (Massive, Monark, ...) are listed as `UNSUPPORTED_PLUGIN` and left empty. **Maschine drum-synth pads** are
-  listed as unsupported and left empty. NI effects are ignored (not converted, do not block conversion).
-* Pad -> MIDI is assumed 36 + index (Maschine default); custom note maps are not read.
-* Multi-zone samplers on a normal kit use the first zone only (warned in the kit report).
-* Sample names are matched exactly, then by a whitespace-normalised UNIQUE match in the same folder (noted in the report).
-* Volume / pitch / envelope / effect settings are not converted. `DefaultSampleRate` stays as in the template (44.1 kHz).
-* `BrowserContentPath` keeps the template's stale string (as upstream).
-* Pad numbering for unusual kits relies on the name-sequence parser (see FORMAT_NOTES.md). It holds kits it is unsure about
-  (`REVIEW_PARSE_UNCERTAIN`) rather than guessing. None were held in the final run.
+![Full-library conversion results](assets/library-run-summary.svg)
+
+<sub>Author-reported Windows run. These figures describe conversion and structural validation, not individual auditioning of every generated rack.</sub>
+
+## What changed vs upstream
+
+Based on [`24407kt/mxgrp-to-drumrack`](https://github.com/24407kt/mxgrp-to-drumrack) (MIT). The upstream `.adg` template-generation technique is retained; the original generator remains as `generate_drum_rack_adg_legacy` for regression comparison.
+
+1. **Pad 10–12 rotation fixed.** The root cause was generator template branch order, not the parser. Branch selection is now based on `ReceivingNote`.
+2. **Structured parser.** Reads sound records (name, instrument, sample) in serialized order; reused samples do not shift pads.
+3. **Unsupported plugin pads reported.** Massive and other plugin pads are reported as `UNSUPPORTED_PLUGIN`, never silently dropped.
+4. **Template branches cleaned.** Unused branches are removed, IDs renumbered 0..n−1, and pad labels use Maschine pad names.
+5. **RIFF-aware WAV reader.** Walks chunks including LIST, bext and extensible; detects truncated or corrupt files.
+6. **Missing/corrupt samples block output** unless `--allow-missing-samples` is explicitly passed.
+7. **No silent truncation.** More than 16 sounds is an error; fewer than 16 records are held for review by default.
+8. **Validate before writing.** Generated XML is re-read and checked for pad count, notes and sample references. Writes are atomic.
+9. **Content-based change detection.** SHA-256 covers source, template, converter/parser versions, sample root and options—not modification times. A manifest is stored in each output folder.
+
+## Verification and limitations
+
+### Verified against Maschine and Live 12
+
+- **3onIt Kit:** pads 10–12 = Sidestick / Tom / Vocal; rack loads in Live 12.
+- **Cachophony Kit** and **Amplified Funk “Chakra Kit”:** sample pads retain the same MIDI notes/pad numbers as Maschine; unsupported synth/plugin pads are empty.
+- **DaOne Kit:** a sample name containing a double space was matched by the whitespace-normalized unique fallback and recorded in the report.
+
+### Automated tests
+
+The Linux sandbox test run used the real 3onIt group and real template with synthetic silent WAVs. The reported suite: **9 tests, OK**. Coverage includes parser order/names/plugin detection, the pad 10–12 regression, XML escaping, dry-run safety, execute + ADG verification, Massive reporting, second-run skip/stale handling, missing/corrupt samples and extensible WAV reading.
+
+### Not verified
+
+- Push 2 pad layout; the converter cannot run Ableton or a Push controller.
+- Only a few racks were opened in Live. The remaining ~5,000 are structurally validated (XML re-parsed, branch count, notes and paths), not individually auditioned.
+- Pad numbering for the 19 short kits and the four `Groups\Kits` Rhodes multizone kits remains unverified.
+
+### Known limitations
+
+- **Short kits (19 held):** 16 are real kits with fewer than 16 pad records; 3 are Multi FX groups. `--accept-short-kits` assumes pads 1..N; verify in Maschine first. One kit references an uninstalled Community Drive 2021 library.
+- **Multizone instruments (211 skipped):** 207 are `Groups\Loops`; 4 are Rhodes kits. A single multizone sampler is not a Drum Rack.
+- **Plugin and Maschine drum-synth pads:** reported as unsupported and left empty. NI effects are ignored and do not block conversion.
+- Pad → MIDI assumes note 36 + index (Maschine default); custom note maps are not read.
+- Multizone samplers on a normal kit use the first zone only (warned in the report).
+- Sample names match exactly, then by a unique whitespace-normalized match in the same folder.
+- Volume, pitch, envelope and effect settings are not converted. `DefaultSampleRate` remains as in the template (44.1 kHz).
+- `BrowserContentPath` retains the template's existing string.
+- Uncertain name-sequence parsing is held as `REVIEW_PARSE_UNCERTAIN` rather than guessed.
+
+## Project files
+
+| File | Purpose |
+|---|---|
+| `batch_convert.py` | Main entry point: discovery, validation, dry-run/execute, manifest, CSV reports and logs |
+| `mxgrp_parser.py` | Structured `.mxgrp` record parser |
+| `mxgrp_to_drumrack.py` | Patched upstream generator, note-addressed ADG generation, RIFF reader and validator |
+| `tests/test_regression_3onit.py` | 3onIt regression tests |
+| `FORMAT_NOTES.md` | Reverse-engineered format notes and unknowns |
+
+## Licence and attribution
+
+This project is licensed under the **MIT License**. See [`LICENSE`](LICENSE).
+
+Based on [`24407kt/mxgrp-to-drumrack`](https://github.com/24407kt/mxgrp-to-drumrack), also MIT-licensed. The original upstream technique is retained and adapted; see the repository history and source for details.
+
+---
+
+<div align="center">
+
+**ECHOLIVITY TOOLS** · Built for hands-on music making.
+
+</div>

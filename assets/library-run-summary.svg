@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101b26"/><stop offset="1" stop-color="#172f3d"/></linearGradient><linearGradient id="bar" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#4db7d0"/><stop offset="1" stop-color="#8bd8e5"/></linearGradient></defs>
+<rect width="1200" height="520" rx="26" fill="url(#bg)"/>
+<text x="64" y="72" fill="#8bd8e5" font-family="Arial,sans-serif" font-size="18" letter-spacing="4">AUTHOR'S FULL-LIBRARY RUN</text>
+<text x="64" y="158" fill="#f1f8fb" font-family="Arial,sans-serif" font-size="72" font-weight="700">5,055</text>
+<text x="68" y="198" fill="#b4cbd5" font-family="Arial,sans-serif" font-size="22">Drum Racks written · 5,462 source groups</text>
+<rect x="64" y="244" width="1072" height="22" rx="11" fill="#263f4c"/>
+<rect x="64" y="244" width="992" height="22" rx="11" fill="url(#bar)"/>
+<g font-family="Arial,sans-serif"><text x="64" y="316" fill="#eaf5f8" font-size="20" font-weight="700">2,859</text><text x="64" y="344" fill="#a9c3ce" font-size="15">Full sample kits</text><text x="330" y="316" fill="#eaf5f8" font-size="20" font-weight="700">2,147</text><text x="330" y="344" fill="#a9c3ce" font-size="15">Partial conversions</text><text x="596" y="316" fill="#eaf5f8" font-size="20" font-weight="700">49</text><text x="596" y="344" fill="#a9c3ce" font-size="15">Already up to date</text><text x="862" y="316" fill="#eaf5f8" font-size="20" font-weight="700">407</text><text x="862" y="344" fill="#a9c3ce" font-size="15">Skipped / held for review</text></g>
+<path d="M64 390H1136" stroke="#355363" stroke-width="2"/>
+<text x="64" y="438" fill="#8bd8e5" font-family="Arial,sans-serif" font-size="18" font-weight="700">0 ERRORS REPORTED</text>
+<text x="64" y="474" fill="#a9c3ce" font-family="Arial,sans-serif" font-size="15">Dry-run prediction matched execution · counts from the documented author library run</text>
+<text x="1136" y="438" fill="#8bd8e5" font-family="Arial,sans-serif" font-size="18" text-anchor="end">5,055 / 5,462</text>
+</g></svg>

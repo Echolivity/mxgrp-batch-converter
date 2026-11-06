@@ -1,4 +1,4 @@
-![MXGRP Batch Converter — Echolivity Tools](assets/mxgrp-converter-banner.svg)
+![MXGRP Batch Converter — Echolivity Tools](assets/mxgrp-converter-banner.svg)\n\n<div align="center">\n\n![Echolivity Tools](assets/echolivity-tools-mark.svg)\n\n</div>
 
 <div align="center">
 
